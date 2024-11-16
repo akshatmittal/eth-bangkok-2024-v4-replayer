@@ -42,9 +42,9 @@ async function writeEvents(events: UniV3PoolScannedEvent[]) {
     const args = event.args as any;
     appendFileSync(
       `./data/univ3-${TARGET_POOL_NAME}-events.csv`,
-      `${event.eventName},${event.blockNumber},${event.eventName === "Burn" ? -args.amount : args.amount ?? ""},${
-        args.tickLower ?? ""
-      },${args.tickUpper ?? ""},${args.amount0 ?? ""},${args.amount1 ?? ""}\n`,
+      `${event.eventName},${event.blockNumber},${event.eventName === "Burn" ? -args.amount : args.amount ?? "0"},${
+        args.tickLower ?? "0"
+      },${args.tickUpper ?? "0"},${args.amount0 ?? "0"},${args.amount1 ?? ""}\n`,
     );
   }
 }

@@ -413,6 +413,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"convert-csv-to-json@npm:^2.49.0":
+  version: 2.49.0
+  resolution: "convert-csv-to-json@npm:2.49.0"
+  checksum: 10c0/d63d5042b43020e0166c59bd17ebd275da73c050b9b80a4a52c7aac3b0023e27c2f9101f8a77cd54027f9f28c93eef851b026e0b3fabd2141d1d2582b68af14c
+  languageName: node
+  linkType: hard
+
 "cross-spawn@npm:^7.0.0":
   version: 7.0.5
   resolution: "cross-spawn@npm:7.0.5"
@@ -1036,6 +1043,7 @@ __metadata:
   resolution: "root-workspace-0b6124@workspace:."
   dependencies:
     "@types/node": "npm:^22.9.0"
+    convert-csv-to-json: "npm:^2.49.0"
     tsx: "npm:^4.19.2"
     typescript: "npm:^5.6.3"
     viem: "npm:^2.21.45"
