@@ -14,6 +14,7 @@ import { PoolKey } from "@uniswap/v4-core/src/types/PoolKey.sol";
 import { TickMath } from "@uniswap/v4-core/src/libraries/TickMath.sol";
 import { Currency } from "@uniswap/v4-core/src/types/Currency.sol";
 import { Actions } from "@uniswap/v4-periphery/src/libraries/Actions.sol";
+import { IPermit2 } from "@uniswap/v4-periphery/lib/permit2/src/interfaces/IPermit2.sol";
 
 import { BasicHook, IHooks } from "./BasicHook.sol";
 
@@ -78,24 +79,29 @@ contract Replayer is Test, Script {
 
         BasicHook hook = BasicHook(HOOK_ADDRESS);
 
+        IPermit2 permit2 = IPermit2(PERMIT2);
         PoolManager poolManager = new PoolManager(OWNER);
         PoolSwapTest swapRouter = new PoolSwapTest(poolManager);
         PositionManager positionManager = new PositionManager(
             poolManager,
-            IAllowanceTransfer(PERMIT2),
+            IAllowanceTransfer(address(permit2)),
             200000,
             IPositionDescriptor(address(0)),
             IWETH9(address(0x4200000000000000000000000000000000000006))
         );
 
-        PoolKey memory poolKey = PoolKey(currency0, currency1, 500, 10, IHooks(address(0)));
+        PoolKey memory poolKey = PoolKey(currency0, currency1, 500, 10, IHooks(address(hook)));
         poolManager.initialize(poolKey, 1350174849792634181862360983626536); // This is the initial value that was used to setup the original pool
 
         vm.startPrank(WHALE);
         token0.approve(address(poolManager), type(uint256).max);
         token1.approve(address(poolManager), type(uint256).max);
+        token0.approve(address(permit2), type(uint256).max);
+        token1.approve(address(permit2), type(uint256).max);
         token0.approve(address(swapRouter), type(uint256).max);
         token1.approve(address(swapRouter), type(uint256).max);
+        permit2.approve(address(token0), address(positionManager), type(uint160).max, type(uint48).max);
+        permit2.approve(address(token1), address(positionManager), type(uint160).max, type(uint48).max);
         vm.stopPrank();
 
         console.log("OONONONON");
@@ -179,13 +185,7 @@ contract Replayer is Test, Script {
                             uint8(Actions.TAKE_PAIR)
                         );
                         bytes[] memory params = new bytes[](2);
-                        params[0] = abi.encode(
-                            tokenId,
-                            uint256(-poolEvent.amount),
-                            type(uint128).max,
-                            type(uint128).max,
-                            ""
-                        );
+                        params[0] = abi.encode(tokenId, uint256(-poolEvent.amount), 0, 0, "");
                         params[1] = abi.encode(currency0, currency1, WHALE);
                         vm.prank(WHALE);
                         positionManager.modifyLiquidities(abi.encode(actions, params), block.timestamp + 1);
