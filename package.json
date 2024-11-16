@@ -12,6 +12,6 @@
   "scripts": {
     "index": "tsx indexer/start.ts",
     "convert": "tsx indexer/convert.ts",
-    "replay": "forge script Replayer --fork-url https://sepolia.unichain.org"
+    "replay": "forge script Replayer --fork-url https://sepolia.unichain.org --fork-block-number 4898400 -vvvvv"
   }
 }

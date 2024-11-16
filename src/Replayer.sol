@@ -4,7 +4,7 @@ pragma solidity >=0.8.0;
 
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import { Test, console } from "forge-std/Test.sol";
+import { Test, console, console2 } from "forge-std/Test.sol";
 import { Script } from "forge-std/Script.sol";
 
 import { PoolManager } from "@uniswap/v4-core/src/PoolManager.sol";
@@ -23,18 +23,41 @@ contract MockERC20 is ERC20 {
     }
 }
 
-contract Replayer is Test {
+struct SinglEvent {
+    uint256 eventType; // 0: Liquidity Op, 1: Other Op (swap)
+    uint256 blockNumber;
+    int256 amount0;
+    int256 amount1;
+    int256 amount;
+    int256 tickLower;
+    int256 tickUpper;
+}
+
+contract Replayer is Test, Script {
     address WHALE = makeAddr("WHALE");
+    address OWNER = makeAddr("OWNER");
 
     // These are all Unichain Sepolia Addresses
-    address constant POOL_MANAGER = 0xd51ccB81De8426637f7b6fA8405B1990a3B81648;
+    address constant POOL_MANAGER = 0xC81462Fec8B23319F288047f8A03A57682a35C1A;
     address constant POSITION_MANAGER = 0x5Cd9D2Ae2BBbF59599d92fF57621d257be371639;
     address constant POOLSWAP = 0xd51ccB81De8426637f7b6fA8405B1990a3B81648;
 
     address constant HOOK_ADDRESS = 0x4444000000000000000000000000000000000000; // The flags must be right
 
+    function getPoolEvents() internal view returns (SinglEvent[] memory events) {
+        string memory json = vm.readFile("data/univ3-usdc-eth-005-events.json");
+        bytes memory data = vm.parseJson(json);
+
+        SinglEvent[] memory manyEvents = abi.decode(data, (SinglEvent[]));
+
+        // Take first 10 for now
+        events = new SinglEvent[](10);
+        for (uint256 i = 0; i < 10; i++) {
+            events[i] = manyEvents[i];
+        }
+    }
+
     function run() public {
-        console.log("Hello, world!");
         MockERC20 token0 = new MockERC20("T0", "T0");
         MockERC20 token1 = new MockERC20("T1", "T1");
 
@@ -48,10 +71,14 @@ contract Replayer is Test {
 
         BasicHook hook = BasicHook(HOOK_ADDRESS);
 
-        PoolManager poolManager = PoolManager(POOL_MANAGER);
-        PoolSwapTest swapRouter = PoolSwapTest(POOLSWAP);
+        PoolManager poolManager = new PoolManager(OWNER);
+        PoolSwapTest swapRouter = new PoolSwapTest(poolManager);
 
         PoolKey memory poolKey = PoolKey(currency0, currency1, 500, 10, IHooks(address(0)));
         poolManager.initialize(poolKey, 1350174849792634181862360983626536); // This is the initial value that was used to setup the original pool
+
+        console.log("OONONONON");
+        SinglEvent[] memory poolEvents = getPoolEvents();
+        console.log("Running %d events", poolEvents.length);
     }
 }

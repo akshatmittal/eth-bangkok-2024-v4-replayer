@@ -1,5 +1,8 @@
 [profile.default]
+
 evm_version = "cancun"
+ffi = true
+fs_permissions = [{access = "read", path = "../"}]
 libs = ["lib"]
 out = "out"
 solc_version = "0.8.26"
