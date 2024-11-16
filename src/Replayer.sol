@@ -26,11 +26,11 @@ contract MockERC20 is ERC20 {
 }
 
 struct SinglEvent {
-    uint256 eventType; // 0: Liquidity Op, 1: Other Op (swap)
-    uint256 blockNumber;
+    int256 amount;
     int256 amount0;
     int256 amount1;
-    int256 amount;
+    int256 blockNumber;
+    int256 eventType; // 0: Liquidity Op, 1: Other Op (swap)
     int256 tickLower;
     int256 tickUpper;
 }
@@ -91,15 +91,32 @@ contract Replayer is Test, Script {
         PoolKey memory poolKey = PoolKey(currency0, currency1, 500, 10, IHooks(address(0)));
         poolManager.initialize(poolKey, 1350174849792634181862360983626536); // This is the initial value that was used to setup the original pool
 
+        vm.startPrank(WHALE);
+        token0.approve(address(poolManager), type(uint256).max);
+        token1.approve(address(poolManager), type(uint256).max);
+        token0.approve(address(swapRouter), type(uint256).max);
+        token1.approve(address(swapRouter), type(uint256).max);
+        vm.stopPrank();
+
         console.log("OONONONON");
         SinglEvent[] memory poolEvents = getPoolEvents();
         console.log("Running %d events", poolEvents.length);
 
-        for (uint i = 0; i < poolEvents.length; i++) {
+        for (uint256 i = 0; i < poolEvents.length; i++) {
             // Alright, somehow need to figure out how to replicate each action
             SinglEvent memory poolEvent = poolEvents[i];
 
-            // eventType = 0, just a Liquidity Operation
+            console2.log("---");
+            console2.logInt(poolEvent.amount);
+            console2.logInt(poolEvent.amount0);
+            console2.logInt(poolEvent.amount1);
+            console2.logInt(poolEvent.blockNumber);
+            console2.logInt(poolEvent.eventType);
+            console2.logInt(poolEvent.tickLower);
+            console2.logInt(poolEvent.tickUpper);
+            console2.log("---");
+
+            // eventType = 0, a Liquidity Operation
             if (poolEvent.eventType == 0) {
                 string memory ticks = string.concat(
                     Strings.toStringSigned(poolEvent.tickLower),
@@ -123,7 +140,7 @@ contract Replayer is Test, Script {
                         poolKey,
                         int24(poolEvent.tickLower),
                         int24(poolEvent.tickUpper),
-                        uint256(poolEvent.amount),
+                        uint256(poolEvent.amount < 0 ? -poolEvent.amount : poolEvent.amount),
                         type(uint128).max,
                         type(uint128).max,
                         WHALE,
@@ -162,7 +179,13 @@ contract Replayer is Test, Script {
                             uint8(Actions.TAKE_PAIR)
                         );
                         bytes[] memory params = new bytes[](2);
-                        params[0] = abi.encode(tokenId, uint256(-poolEvent.amount), 0, 0, "");
+                        params[0] = abi.encode(
+                            tokenId,
+                            uint256(-poolEvent.amount),
+                            type(uint128).max,
+                            type(uint128).max,
+                            ""
+                        );
                         params[1] = abi.encode(currency0, currency1, WHALE);
                         vm.prank(WHALE);
                         positionManager.modifyLiquidities(abi.encode(actions, params), block.timestamp + 1);
