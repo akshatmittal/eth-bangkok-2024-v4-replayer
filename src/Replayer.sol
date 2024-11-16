@@ -1,5 +1,4 @@
 // SPDX-License-Identifier: MIT
-// $ forge script UniV4Backtester --fork-url https://eth-sepolia.g.alchemy.com/v2/0123456789ABCDEFGHIJKLMNOPQRSTUV --fork-block-number 6907299
 pragma solidity >=0.8.0;
 
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
@@ -49,8 +48,8 @@ contract Replayer is Test, Script {
     address constant HOOK_ADDRESS = 0x4444000000000000000000000000000000000000; // The flags must be right
 
     // Instead of replicating by the same tokenId, we'll use unique tick pairs as the keys
-    mapping(string => bool) private isTicksExist;
-    mapping(string => uint256) private ticksToTokenId;
+    mapping(bytes32 => bool) private ticksToPositionExists;
+    mapping(bytes32 => uint256) private ticksToPositionId;
 
     function getPoolEvents() internal view returns (SinglEvent[] memory events) {
         string memory json = vm.readFile("data/univ3-usdc-eth-005-events.json");
@@ -58,9 +57,11 @@ contract Replayer is Test, Script {
 
         SinglEvent[] memory manyEvents = abi.decode(data, (SinglEvent[]));
 
-        // Take first 10 for now
-        events = new SinglEvent[](10);
-        for (uint256 i = 0; i < 10; i++) {
+        uint256 eventLimit = 100;
+
+        // Limit total events based on memory availability
+        events = new SinglEvent[](eventLimit);
+        for (uint256 i = 0; i < eventLimit; i++) {
             events[i] = manyEvents[i];
         }
     }
@@ -112,32 +113,35 @@ contract Replayer is Test, Script {
             // Alright, somehow need to figure out how to replicate each action
             SinglEvent memory poolEvent = poolEvents[i];
 
+            console2.log("Found new event");
             console2.log("---");
-            console2.logInt(poolEvent.amount);
-            console2.logInt(poolEvent.amount0);
-            console2.logInt(poolEvent.amount1);
-            console2.logInt(poolEvent.blockNumber);
-            console2.logInt(poolEvent.eventType);
-            console2.logInt(poolEvent.tickLower);
-            console2.logInt(poolEvent.tickUpper);
+            console2.log("amount: ", poolEvent.amount);
+            console2.log("amount0: ", poolEvent.amount0);
+            console2.log("amount1: ", poolEvent.amount1);
+            console2.log("blockNumber: ", poolEvent.blockNumber);
+            console2.log("eventType: ", poolEvent.eventType);
+            console2.log("tickLower: ", poolEvent.tickLower);
+            console2.log("tickUpper: ", poolEvent.tickUpper);
             console2.log("---");
 
             // eventType = 0, a Liquidity Operation
             if (poolEvent.eventType == 0) {
-                string memory ticks = string.concat(
+                string memory ticksString = string.concat(
                     Strings.toStringSigned(poolEvent.tickLower),
+                    ":",
                     Strings.toStringSigned(poolEvent.tickUpper)
                 );
+                bytes32 ticks = keccak256(abi.encodePacked(ticksString));
 
-                if (!isTicksExist[ticks]) {
+                if (!ticksToPositionExists[ticks]) {
                     // There are two situations which can happen here:
                     // 1. Minting a new position
                     // 2. We have bad replay data
                     // Either way, we correct it.
                     uint256 tokenId = positionManager.nextTokenId();
 
-                    isTicksExist[ticks] = true;
-                    ticksToTokenId[ticks] = tokenId;
+                    ticksToPositionExists[ticks] = true;
+                    ticksToPositionId[ticks] = tokenId;
 
                     // Code below from v4-template
                     bytes memory actions = abi.encodePacked(uint8(Actions.MINT_POSITION), uint8(Actions.SETTLE_PAIR));
@@ -159,7 +163,7 @@ contract Replayer is Test, Script {
                     // This position, or a similar one, is already known.
                     // Since positions in the same ticks are fungible,
                     // we can just use the same tokenId to increase liquidity.
-                    uint256 tokenId = ticksToTokenId[ticks];
+                    uint256 tokenId = ticksToPositionId[ticks];
 
                     if (poolEvent.amount > 0) {
                         // Code below from v4-template
@@ -209,5 +213,7 @@ contract Replayer is Test, Script {
                 swapRouter.swap(poolKey, params, testSettings, "");
             }
         }
+
+        console2.log("All done! State ready.");
     }
 }
