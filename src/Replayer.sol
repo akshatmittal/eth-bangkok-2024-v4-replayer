@@ -7,7 +7,7 @@ import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { Test, console, console2 } from "forge-std/Test.sol";
 import { Script } from "forge-std/Script.sol";
 
-import { PoolManager } from "@uniswap/v4-core/src/PoolManager.sol";
+import { PoolManager, IPoolManager } from "@uniswap/v4-core/src/PoolManager.sol";
 import { PositionManager, IWETH9, IPositionDescriptor, IAllowanceTransfer } from "@uniswap/v4-periphery/src/PositionManager.sol";
 import { PoolSwapTest } from "@uniswap/v4-core/src/test/PoolSwapTest.sol";
 import { PoolKey } from "@uniswap/v4-core/src/types/PoolKey.sol";
@@ -90,7 +90,7 @@ contract Replayer is Test, Script {
             IWETH9(address(0x4200000000000000000000000000000000000006))
         );
 
-        PoolKey memory poolKey = PoolKey(currency0, currency1, 500, 10, IHooks(address(hook)));
+        PoolKey memory poolKey = PoolKey(currency0, currency1, 500, 10, IHooks(address(0)));
         poolManager.initialize(poolKey, 1350174849792634181862360983626536); // This is the initial value that was used to setup the original pool
 
         vm.startPrank(WHALE);
@@ -191,6 +191,22 @@ contract Replayer is Test, Script {
                         positionManager.modifyLiquidities(abi.encode(actions, params), block.timestamp + 1);
                     }
                 }
+            } else {
+                // eventType = 1, a Swap Operation
+                bool zeroForOne = poolEvent.amount0 > 0;
+                IPoolManager.SwapParams memory params = IPoolManager.SwapParams({
+                    zeroForOne: zeroForOne,
+                    amountSpecified: -int256(zeroForOne ? poolEvent.amount0 : poolEvent.amount1),
+                    sqrtPriceLimitX96: zeroForOne ? (TickMath.MIN_SQRT_PRICE + 1) : (TickMath.MAX_SQRT_PRICE - 1)
+                });
+                // ^ @note this line makes it so that the original swap slippage is not considered
+                // Good because hook can have high impact, bad becuase slipped swaps are counted
+                PoolSwapTest.TestSettings memory testSettings = PoolSwapTest.TestSettings({
+                    takeClaims: false,
+                    settleUsingBurn: false
+                });
+                vm.prank(WHALE);
+                swapRouter.swap(poolKey, params, testSettings, "");
             }
         }
     }
