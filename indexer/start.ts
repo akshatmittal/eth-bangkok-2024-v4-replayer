@@ -1,10 +1,11 @@
-import { V3PoolABI } from "./abis";
 import { ExtractAbiEventNames } from "abitype";
 import { appendFileSync } from "node:fs";
-import { Address, Log, createPublicClient, getAddress, webSocket, http } from "viem";
+import { Address, Log, createPublicClient, getAddress, http } from "viem";
+
 import { mainnet } from "viem/chains";
 
-// This type comes from the event scanner used below
+import { V3PoolABI } from "./abis";
+
 type UniV3PoolScannedEvent = Log<
   bigint,
   number,
@@ -70,13 +71,13 @@ async function getContractEvents(pool: Address, fromBlock: bigint, desiredToBloc
     const reducedRangeToBlock = fromBlock + (desiredToBlock - fromBlock) / 2n;
 
     // RPC sucks
-    await new Promise((resolve) => setTimeout(resolve, 500));
+    await new Promise((resolve) => setTimeout(resolve, 250));
 
     return await getContractEvents(pool, fromBlock, reducedRangeToBlock);
   }
 }
 
-async function fetchSingleBatchOfEvents() {
+async function startFetchingEvents() {
   const fromBlock = BigInt(state.lastCompletedBlock + 1);
 
   const latestBlock = Number(await viemClient.getBlockNumber());
@@ -99,7 +100,7 @@ async function fetchSingleBatchOfEvents() {
 
 async function fetchUniV3PoolEvents() {
   while (true) {
-    await fetchSingleBatchOfEvents();
+    await startFetchingEvents();
   }
 }
 
