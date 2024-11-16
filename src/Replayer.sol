@@ -50,6 +50,7 @@ contract Replayer is Test, Script {
     // Instead of replicating by the same tokenId, we'll use unique tick pairs as the keys
     mapping(bytes32 => bool) private ticksToPositionExists;
     mapping(bytes32 => uint256) private ticksToPositionId;
+    uint256 totalPositions;
 
     function getPoolEvents() internal view returns (SinglEvent[] memory events) {
         string memory json = vm.readFile("data/univ3-usdc-eth-005-events.json");
@@ -133,6 +134,8 @@ contract Replayer is Test, Script {
                 );
                 bytes32 ticks = keccak256(abi.encodePacked(ticksString));
 
+                totalPositions++;
+
                 if (!ticksToPositionExists[ticks]) {
                     // There are two situations which can happen here:
                     // 1. Minting a new position
@@ -215,5 +218,6 @@ contract Replayer is Test, Script {
         }
 
         console2.log("All done! State ready.");
+        console2.log("Total positions: %d", totalPositions);
     }
 }
